@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using SeoRender.Web.Components;
 using SeoRender.Web.Components.Account;
 using SeoRender.Web.Data;
+using System.Net.Mime;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -35,6 +36,8 @@ builder.Services.AddIdentityCore<ApplicationUser>(options => options.SignIn.Requ
     .AddDefaultTokenProviders();
 
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
+builder.Services.AddSingleton<PreRenderDbContext>();
+builder.Services.AddSingleton<PreRenderService>();
 
 var app = builder.Build();
 
@@ -61,5 +64,17 @@ app.MapRazorComponents<App>()
 
 // Add additional endpoints required by the Identity /Account Razor components.
 app.MapAdditionalIdentityEndpoints();
+
+app.MapGet("/api/prerender", async (HttpContext http, string url, PreRenderService service) =>
+{
+    if (!Uri.TryCreate(url, UriKind.Absolute, out _))
+    {
+        return Results.BadRequest("Invalid url");
+    }
+
+    var page = await service.GetRenderedPageAsync(url);
+    http.Response.Headers["Last-Modified"] = page.Timestamp.ToString("R");
+    return Results.Content(page.Html, MediaTypeNames.Text.Html);
+});
 
 app.Run();
