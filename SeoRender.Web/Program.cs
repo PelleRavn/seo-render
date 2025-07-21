@@ -5,12 +5,20 @@ using SeoRender.Web.Components;
 using SeoRender.Web.Components.Account;
 using SeoRender.Web.Data;
 using System.Net.Mime;
+using Microsoft.AspNetCore.ResponseCompression;
+using System.IO.Compression;
+using System.IO;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+});
 
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<IdentityUserAccessor>();
@@ -55,6 +63,8 @@ else
 
 app.UseHttpsRedirection();
 
+app.UseResponseCompression();
+
 
 app.UseAntiforgery();
 
@@ -72,9 +82,20 @@ app.MapGet("/api/prerender", async (HttpContext http, string url, PreRenderServi
         return Results.BadRequest("Invalid url");
     }
 
-    var page = await service.GetRenderedPageAsync(url);
-    http.Response.Headers["Last-Modified"] = page.Timestamp.ToString("R");
-    return Results.Content(page.Html, MediaTypeNames.Text.Html);
+    var result = await service.GetRenderedPageAsync(url);
+    http.Response.Headers["Last-Modified"] = result.Meta.Timestamp.ToString("R");
+
+    if (http.Request.Headers.AcceptEncoding.ToString().Contains("gzip"))
+    {
+        http.Response.Headers["Content-Encoding"] = "gzip";
+        var stream = new MemoryStream(result.GzipContent, writable: false);
+        return TypedResults.Stream(stream, MediaTypeNames.Text.Html);
+    }
+    else
+    {
+        var stream = new GZipStream(new MemoryStream(result.GzipContent, writable: false), CompressionMode.Decompress);
+        return TypedResults.Stream(stream, MediaTypeNames.Text.Html);
+    }
 });
 
 app.Run();
