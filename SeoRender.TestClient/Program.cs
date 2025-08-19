@@ -1,10 +1,14 @@
 using SeoRender.TestClient.Components;
+using SeoRender.TestClient;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+builder.Services.AddHttpClient();
+builder.Services.Configure<PreRenderOptions>(builder.Configuration.GetSection("PreRender"));
 
 var app = builder.Build();
 
@@ -17,8 +21,7 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
-
+app.UseMiddleware<PreRenderMiddleware>();
 app.UseAntiforgery();
 
 app.MapStaticAssets();
