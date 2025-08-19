@@ -1,0 +1,80 @@
+@page "/stats/{Domain}"
+@using SeoRender.Web.Data
+@inject PreRenderDbContext Db
+
+<PageTitle>@Domain Stats</PageTitle>
+
+<h1>@Domain</h1>
+
+<input placeholder="Search URIs" value="@search" @oninput="OnSearchChanged" />
+
+<table class="table">
+    <thead>
+    <tr>
+        <th>URI</th>
+        <th>Size (bytes)</th>
+    </tr>
+    </thead>
+    <tbody>
+    @foreach (var meta in PageItems)
+    {
+        var file = Db.Storage.FindById(meta.ContentHash);
+        var size = file?.Length ?? 0;
+        <tr>
+            <td>@meta.Url</td>
+            <td>@size</td>
+        </tr>
+    }
+    </tbody>
+</table>
+
+<button @onclick="PrevPage" disabled="@(_pageIndex == 0)">Previous</button>
+<button @onclick="NextPage" disabled="@((_pageIndex + 1) * PageSize >= filtered.Count)">Next</button>
+
+@code {
+    [Parameter] public string Domain { get; set; } = string.Empty;
+
+    private const int PageSize = 10;
+    private int _pageIndex;
+    private string search = string.Empty;
+    private List<RenderedPageMeta> filtered = new();
+
+    protected override void OnParametersSet()
+    {
+        Load();
+    }
+
+    private void OnSearchChanged(ChangeEventArgs e)
+    {
+        search = e.Value?.ToString() ?? string.Empty;
+        _pageIndex = 0;
+        Load();
+    }
+
+    private void Load()
+    {
+        var query = Db.Metas.Find(m => m.Domain == Domain);
+        filtered = string.IsNullOrWhiteSpace(search)
+            ? query.ToList()
+            : query.Where(m => m.Url.Contains(search, StringComparison.OrdinalIgnoreCase)).ToList();
+    }
+
+    private IEnumerable<RenderedPageMeta> PageItems =>
+        filtered.Skip(_pageIndex * PageSize).Take(PageSize);
+
+    private void PrevPage()
+    {
+        if (_pageIndex > 0)
+        {
+            _pageIndex--;
+        }
+    }
+
+    private void NextPage()
+    {
+        if ((_pageIndex + 1) * PageSize < filtered.Count)
+        {
+            _pageIndex++;
+        }
+    }
+}

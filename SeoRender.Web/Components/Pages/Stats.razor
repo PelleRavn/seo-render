@@ -1,0 +1,46 @@
+@page "/stats"
+@using SeoRender.Web.Data
+@inject PreRenderDbContext Db
+
+<PageTitle>Stats</PageTitle>
+
+<h1>Stats</h1>
+
+@if (_loading)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <p>Total pages: @totalCount</p>
+    <p>Average render time: @avgRenderTimeMs.ToString("0.0") ms</p>
+
+    <h2>Domains</h2>
+    <ul>
+    @foreach (var d in domains)
+    {
+        <li><NavLink href="@($"/stats/{d.Domain}")">@d.Domain (@d.Count)</NavLink></li>
+    }
+    </ul>
+}
+
+@code {
+    private int totalCount;
+    private double avgRenderTimeMs;
+    private bool _loading = true;
+    private List<DomainInfo> domains = new();
+
+    protected override void OnInitialized()
+    {
+        var metas = Db.Metas.FindAll().ToList();
+        totalCount = metas.Count;
+        avgRenderTimeMs = metas.Any() ? metas.Average(m => m.LoadTimeMs) : 0;
+        domains = metas.GroupBy(m => m.Domain)
+            .Select(g => new DomainInfo(g.Key, g.Count()))
+            .OrderBy(d => d.Domain)
+            .ToList();
+        _loading = false;
+    }
+
+    private record DomainInfo(string Domain, int Count);
+}
