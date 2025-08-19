@@ -4,32 +4,47 @@
 
 <PageTitle>@Domain Stats</PageTitle>
 
-<h1>@Domain</h1>
+<div class="container">
+    <h1 class="mb-4">@Domain</h1>
 
-<input placeholder="Search URIs" value="@search" @oninput="OnSearchChanged" />
+    <div class="card mb-3">
+        <div class="card-body">
+            <div class="input-group">
+                <span class="input-group-text"><span class="bi bi-search"></span></span>
+                <input class="form-control" placeholder="Search URIs" value="@search" @oninput="OnSearchChanged" />
+            </div>
+        </div>
+    </div>
 
-<table class="table">
-    <thead>
-    <tr>
-        <th>URI</th>
-        <th>Size (bytes)</th>
-    </tr>
-    </thead>
-    <tbody>
-    @foreach (var meta in PageItems)
-    {
-        var file = Db.Storage.FindById(meta.ContentHash);
-        var size = file?.Length ?? 0;
-        <tr>
-            <td>@meta.Url</td>
-            <td>@size</td>
-        </tr>
-    }
-    </tbody>
-</table>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>URI</th>
+                <th>Size</th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var meta in PageItems)
+        {
+            <tr>
+                <td>@meta.Url</td>
+                <td>@GetSize(meta)</td>
+            </tr>
+        }
+        </tbody>
+    </table>
 
-<button @onclick="PrevPage" disabled="@(_pageIndex == 0)">Previous</button>
-<button @onclick="NextPage" disabled="@((_pageIndex + 1) * PageSize >= filtered.Count)">Next</button>
+    <nav>
+        <ul class="pagination">
+            <li class="page-item @(_pageIndex == 0 ? "disabled" : null)">
+                <button class="page-link" @onclick="PrevPage">Previous</button>
+            </li>
+            <li class="page-item @(((_pageIndex + 1) * PageSize >= filtered.Count) ? "disabled" : null)">
+                <button class="page-link" @onclick="NextPage">Next</button>
+            </li>
+        </ul>
+    </nav>
+</div>
 
 @code {
     [Parameter] public string Domain { get; set; } = string.Empty;
@@ -61,6 +76,13 @@
 
     private IEnumerable<RenderedPageMeta> PageItems =>
         filtered.Skip(_pageIndex * PageSize).Take(PageSize);
+
+    private string GetSize(RenderedPageMeta meta)
+    {
+        var file = Db.Storage.FindById(meta.ContentHash);
+        var size = file?.Length ?? 0;
+        return size > 1024 ? $"{size / 1024} KB" : $"{size} B";
+    }
 
     private void PrevPage()
     {
