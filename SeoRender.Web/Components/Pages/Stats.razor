@@ -1,0 +1,73 @@
+@page "/stats"
+@using SeoRender.Web.Data
+@inject PreRenderDbContext Db
+
+<PageTitle>Stats</PageTitle>
+
+<h1>Stats</h1>
+
+@if (_loading)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <div class="row mb-4">
+        <div class="col-sm-6 col-md-3 mb-3">
+            <div class="card text-center h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Total Pages</h5>
+                    <p class="card-text">@totalCount</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-md-3 mb-3">
+            <div class="card text-center h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Avg Render Time</h5>
+                    <p class="card-text">@avgRenderTimeMs.ToString("0.0") ms</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <h2>Domains</h2>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Domain</th>
+                <th>Pages</th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var d in domains)
+        {
+            <tr>
+                <td><NavLink href="@($"/stats/{d.Domain}")">@d.Domain</NavLink></td>
+                <td>@d.Count</td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}
+
+@code {
+    private int totalCount;
+    private double avgRenderTimeMs;
+    private bool _loading = true;
+    private List<DomainInfo> domains = new();
+
+    protected override void OnInitialized()
+    {
+        var metas = Db.Metas.FindAll().ToList();
+        totalCount = metas.Count;
+        avgRenderTimeMs = metas.Any() ? metas.Average(m => m.LoadTimeMs) : 0;
+        domains = metas.GroupBy(m => m.Domain)
+            .Select(g => new DomainInfo(g.Key, g.Count()))
+            .OrderBy(d => d.Domain)
+            .ToList();
+        _loading = false;
+    }
+
+    private record DomainInfo(string Domain, int Count);
+}
