@@ -84,6 +84,7 @@ app.MapGet("/api/prerender", async (HttpContext http, string url, PreRenderServi
 
     var result = await service.GetRenderedPageAsync(url);
     http.Response.Headers["Last-Modified"] = result.Meta.Timestamp.ToString("R");
+    http.Response.Headers["X-From-SeoRender"] = "true";
 
     if (http.Request.Headers.AcceptEncoding.ToString().Contains("gzip"))
     {
