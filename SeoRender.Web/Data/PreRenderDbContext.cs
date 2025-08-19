@@ -17,11 +17,10 @@ public class PreRenderDbContext : IDisposable
 
         Metas.EnsureIndex(p => p.Hash, unique: true);
         Metas.EnsureIndex(p => p.Domain);
-        Contents.EnsureIndex(c => c.ContentHash, unique: true);
     }
 
     public ILiteCollection<RenderedPageMeta> Metas => _metaDb.GetCollection<RenderedPageMeta>("pages");
-    public ILiteCollection<RenderedPageContent> Contents => _contentDb.GetCollection<RenderedPageContent>("contents");
+    public ILiteStorage<string> Storage => _contentDb.FileStorage;
 
     public void Dispose()
     {
@@ -40,9 +39,3 @@ public class RenderedPageMeta
     public DateTime Timestamp { get; set; }
 }
 
-public class RenderedPageContent
-{
-    [BsonId]
-    public string ContentHash { get; set; } = default!;
-    public byte[] Gzip { get; set; } = default!;
-}

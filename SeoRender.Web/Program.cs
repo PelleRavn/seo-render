@@ -88,12 +88,11 @@ app.MapGet("/api/prerender", async (HttpContext http, string url, PreRenderServi
     if (http.Request.Headers.AcceptEncoding.ToString().Contains("gzip"))
     {
         http.Response.Headers["Content-Encoding"] = "gzip";
-        var stream = new MemoryStream(result.GzipContent, writable: false);
-        return TypedResults.Stream(stream, MediaTypeNames.Text.Html);
+        return TypedResults.Stream(result.GzipStream, MediaTypeNames.Text.Html);
     }
     else
     {
-        var stream = new GZipStream(new MemoryStream(result.GzipContent, writable: false), CompressionMode.Decompress);
+        var stream = new GZipStream(result.GzipStream, CompressionMode.Decompress);
         return TypedResults.Stream(stream, MediaTypeNames.Text.Html);
     }
 });
