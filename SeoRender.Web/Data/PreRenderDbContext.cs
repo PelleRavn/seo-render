@@ -36,6 +36,7 @@ public class RenderedPageMeta
     public string Domain { get; set; } = default!;
     public string Url { get; set; } = default!;
     public string ContentHash { get; set; } = default!;
+    public int LoadTimeMs { get; set; }
     public DateTime Timestamp { get; set; }
 }
 

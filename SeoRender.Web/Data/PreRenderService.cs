@@ -1,6 +1,8 @@
 using PuppeteerSharp;
 using System.IO;
 using System.IO.Compression;
+using System.Collections.Concurrent;
+using System.Diagnostics;
 
 namespace SeoRender.Web.Data;
 
@@ -8,6 +10,7 @@ public class PreRenderService
 {
     private readonly PreRenderDbContext _db;
     private readonly ILogger<PreRenderService> _logger;
+    private readonly ConcurrentDictionary<string, Task<RenderedPageMeta>> _inProgress = new();
 
     public PreRenderService(PreRenderDbContext db, ILogger<PreRenderService> logger)
     {
@@ -28,10 +31,24 @@ public class PreRenderService
             return new RenderedPageResult(cachedMeta, stream);
         }
 
+        var task = _inProgress.GetOrAdd(hash, _ => RenderAndSaveAsync(url, hash));
+        var meta = await task;
+        _inProgress.TryRemove(hash, out _);
+
+        var resultStream = _db.Storage.OpenRead(meta.ContentHash);
+        return new RenderedPageResult(meta, resultStream);
+    }
+
+    private async Task<RenderedPageMeta> RenderAndSaveAsync(string url, string hash)
+    {
         await new BrowserFetcher().DownloadAsync(BrowserFetcher.DefaultChromiumRevision);
         await using var browser = await Puppeteer.LaunchAsync(new LaunchOptions { Headless = true });
         await using var page = await browser.NewPageAsync();
+
+        var sw = Stopwatch.StartNew();
         await page.GoToAsync(url, WaitUntilNavigation.Networkidle0);
+        sw.Stop();
+
         var html = await page.GetContentAsync();
 
         var contentHash = HashUtil.Sha256(html);
@@ -49,12 +66,12 @@ public class PreRenderService
             Domain = new Uri(url).Host,
             Url = url,
             ContentHash = contentHash,
-            Timestamp = DateTime.UtcNow
+            Timestamp = DateTime.UtcNow,
+            LoadTimeMs = (int)sw.Elapsed.TotalMilliseconds
         };
 
         _db.Metas.Upsert(doc);
-        var resultStream = _db.Storage.OpenRead(contentHash);
-        return new RenderedPageResult(doc, resultStream);
+        return doc;
     }
 
     public async Task<string> GetRenderedHtmlAsync(string url)
